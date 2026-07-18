@@ -13,9 +13,10 @@
         "testimonials": { "type": "array", "description": "Recommendations and testimonials" },
         "gallery": { "type": "array", "description": "Behind-the-scenes gallery media" },
         "profileInfo": { "type": "object", "description": "Personal developer profile details" },
-        "processSteps": { "type": "array", "description": "Custom project production workflows" }
+        "processSteps": { "type": "array", "description": "Custom project production workflows" },
+        "aboutProfileImg": { "type": "string", "description": "The custom profile image URL used in the about section" }
       },
-      "required": ["projects", "skills", "software", "experience", "achievements", "testimonials", "gallery", "profileInfo", "processSteps"]
+      "required": ["projects", "skills", "software", "experience", "achievements", "testimonials", "gallery", "profileInfo", "processSteps", "aboutProfileImg"]
     }
   },
   "firestore": {
