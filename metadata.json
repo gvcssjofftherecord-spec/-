@@ -1,0 +1,6 @@
+{
+  "name": "정승리 | Video Producer Portfolio",
+  "description": "영상 제작자 정승리의 시네마틱 포트폴리오 사이트입니다. 기획부터 촬영, 편집까지 완성도 높은 스토리텔링을 선사합니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

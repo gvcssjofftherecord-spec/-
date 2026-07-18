@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "PortfolioData": {
+      "title": "PortfolioData",
+      "description": "All portfolio items and information, synced to Firebase Firestore",
+      "type": "object",
+      "properties": {
+        "projects": { "type": "array", "description": "List of portfolio projects" },
+        "skills": { "type": "array", "description": "List of technical skills" },
+        "software": { "type": "array", "description": "List of software packages used" },
+        "experience": { "type": "array", "description": "Professional experience timeline items" },
+        "achievements": { "type": "array", "description": "Key achievements and awards" },
+        "testimonials": { "type": "array", "description": "Recommendations and testimonials" },
+        "gallery": { "type": "array", "description": "Behind-the-scenes gallery media" },
+        "profileInfo": { "type": "object", "description": "Personal developer profile details" },
+        "processSteps": { "type": "array", "description": "Custom project production workflows" }
+      },
+      "required": ["projects", "skills", "software", "experience", "achievements", "testimonials", "gallery", "profileInfo", "processSteps"]
+    }
+  },
+  "firestore": {
+    "portfolio/main": {
+      "schema": "PortfolioData",
+      "description": "The main document containing all synced portfolio content"
+    }
+  }
+}
