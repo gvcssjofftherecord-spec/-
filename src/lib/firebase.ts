@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, doc, getDocFromServer, setDoc, onSnapshot, Firestore } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { getFirestore, doc, getDocFromServer, setDoc, onSnapshot, Firestore } from 'firebase/firestore';
+import { firebaseConfig } from './firebaseConfig';
 
 // Initialize Firebase safely
 let app;
@@ -8,8 +8,8 @@ let firestoreDb: Firestore | null = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  // Initialize Firestore with specific databaseId
-  firestoreDb = initializeFirestore(app, {}, firebaseConfig.firestoreDatabaseId || '(default)');
+  // Get/initialize Firestore instance with specific databaseId
+  firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
   console.log("Firebase App and Firestore initialized successfully.");
 } catch (error) {
   console.error("Firebase/Firestore initialization failed:", error);
