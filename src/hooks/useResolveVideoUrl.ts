@@ -15,7 +15,7 @@ export function useResolveVideoUrl(url?: string): string {
       let active = true;
       let objectUrl = '';
 
-      getVideoFromIndexedDB(key).then((blob) => {
+      getVideoFromIndexedDB(key).then(async (blob) => {
         if (!active) return;
         if (blob) {
           try {
@@ -26,7 +26,22 @@ export function useResolveVideoUrl(url?: string): string {
             setResolvedUrl('');
           }
         } else {
-          setResolvedUrl('');
+          // Fallback: Try fetching from Firestore cloud database
+          try {
+            const { downloadMediaFromFirestore } = await import('../lib/firebase');
+            const remoteBlob = await downloadMediaFromFirestore(key);
+            if (remoteBlob && active) {
+              const { saveVideoToIndexedDB } = await import('../lib/videoStorage');
+              await saveVideoToIndexedDB(key, remoteBlob);
+              objectUrl = URL.createObjectURL(remoteBlob);
+              setResolvedUrl(objectUrl);
+            } else {
+              setResolvedUrl('');
+            }
+          } catch (cloudErr) {
+            console.warn('Failed to fetch video from cloud:', cloudErr);
+            setResolvedUrl('');
+          }
         }
       }).catch((err) => {
         console.error('Failed to retrieve video from IndexedDB:', err);

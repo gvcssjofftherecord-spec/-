@@ -22,7 +22,7 @@ export function useResolveImageUrl(url?: string, fallback = ''): string {
       let objectUrl = '';
 
       getVideoFromIndexedDB(key)
-        .then((blob) => {
+        .then(async (blob) => {
           if (!active) return;
           if (blob) {
             try {
@@ -33,7 +33,22 @@ export function useResolveImageUrl(url?: string, fallback = ''): string {
               setResolvedUrl(fallback);
             }
           } else {
-            setResolvedUrl(fallback);
+            // Fallback: Try fetching from Firestore cloud database
+            try {
+              const { downloadMediaFromFirestore } = await import('../lib/firebase');
+              const remoteBlob = await downloadMediaFromFirestore(key);
+              if (remoteBlob && active) {
+                const { saveVideoToIndexedDB } = await import('../lib/videoStorage');
+                await saveVideoToIndexedDB(key, remoteBlob);
+                objectUrl = URL.createObjectURL(remoteBlob);
+                setResolvedUrl(objectUrl);
+              } else {
+                setResolvedUrl(fallback);
+              }
+            } catch (cloudErr) {
+              console.warn('Failed to fetch from cloud:', cloudErr);
+              setResolvedUrl(fallback);
+            }
           }
         })
         .catch((err) => {

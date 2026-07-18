@@ -4,5 +4,8 @@ service cloud.firestore {
     match /portfolio/main {
       allow read, write: if true;
     }
+    match /media/{mediaId} {
+      allow read, write: if true;
+    }
   }
 }

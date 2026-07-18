@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Project, Skill, Software, Experience, Achievement, Testimonial, GalleryItem, ProjectCategory, ProfileInfo, ProcessStep } from '../types';
 import { LucideIcon } from './LucideIcon';
 import { motion, AnimatePresence } from 'motion/react';
-import { compressImageDataUrl } from '../lib/videoUtils';
+import { compressImageDataUrl, compressImageFile } from '../lib/videoUtils';
 import { saveVideoToIndexedDB } from '../lib/videoStorage';
 import { useResolveImageUrl } from '../hooks/useResolveImageUrl';
+import { uploadMediaToFirestore } from '../lib/firebase';
 import { SafeImage } from './SafeImage';
 
 interface AdminPanelProps {
@@ -89,6 +90,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [profInstagram, setProfInstagram] = useState(profileInfo?.instagram || '');
   const [profYoutube, setProfYoutube] = useState(profileInfo?.youtube || '');
   const [profGithub, setProfGithub] = useState(profileInfo?.github || '');
+  const [profHeroVideoUrl, setProfHeroVideoUrl] = useState(profileInfo?.heroVideoUrl || '');
+
+  // Synchronize state when profileInfo prop changes (e.g., loaded from Firestore)
+  React.useEffect(() => {
+    if (profileInfo) {
+      setProfName(profileInfo.name || '');
+      setProfSubtitle(profileInfo.subtitle || '');
+      setProfRoles(profileInfo.roles || '');
+      setProfIntroHeader(profileInfo.introHeader || '');
+      setProfIntroBio(profileInfo.introBio || '');
+      setProfAge(profileInfo.age || '');
+      setProfLocation(profileInfo.location || '');
+      setProfExperienceYears(profileInfo.experienceYears || '');
+      setProfEmail(profileInfo.email || '');
+      setProfPhone(profileInfo.phone || '');
+      setProfKakao(profileInfo.kakao || '');
+      setProfInstagram(profileInfo.instagram || '');
+      setProfYoutube(profileInfo.youtube || '');
+      setProfGithub(profileInfo.github || '');
+      setProfHeroVideoUrl(profileInfo.heroVideoUrl || '');
+    }
+  }, [profileInfo]);
 
   // Delete confirmation states to prevent sandboxed iframe blockages
   const [deletingSwId, setDeletingSwId] = useState<string | null>(null);
@@ -105,6 +128,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [toast, setToast] = useState<string | null>(null);
   const [videoUploading, setVideoUploading] = useState(false);
   const [hoverVideoUploading, setHoverVideoUploading] = useState(false);
+  const [heroVideoUploading, setHeroVideoUploading] = useState(false);
 
   // Experience state
   const [editingExp, setEditingExp] = useState<Experience | null>(null);
@@ -618,6 +642,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         instagram: profInstagram,
                         youtube: profYoutube,
                         github: profGithub,
+                        heroVideoUrl: profHeroVideoUrl,
                       };
                       onSaveAll({ profileInfo: updatedInfo });
                       showToast('프로필 정보가 안전하게 저장되었습니다!');
@@ -767,6 +792,93 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white"
                           placeholder="예: Seungri Jeong YT"
                         />
+                      </div>
+
+                      {/* Main Background Hero Video */}
+                      <div className="space-y-2 md:col-span-2 border-t border-white/5 pt-4">
+                        <label className="text-xs font-semibold text-[#B021FF] uppercase tracking-wider block text-left">
+                          메인 화면 배경 비디오 설정 (Subtle Background Video)
+                        </label>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 border border-white/10 rounded-lg p-4">
+                          {/* URL Input */}
+                          <div className="space-y-1.5 text-left">
+                            <span className="text-[10px] text-gray-400 font-medium block">방법 1: 외부 비디오 직접 링크 주소 입력 (.mp4 등)</span>
+                            <input
+                              type="text"
+                              value={profHeroVideoUrl.startsWith('local-video:') ? '내 컴퓨터에서 업로드된 배경 비디오 파일' : profHeroVideoUrl}
+                              disabled={profHeroVideoUrl.startsWith('local-video:')}
+                              onChange={(e) => setProfHeroVideoUrl(e.target.value)}
+                              className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white disabled:opacity-50 disabled:text-gray-400 font-mono"
+                              placeholder="예: https://assets.mixkit.co/videos/preview/...mp4"
+                            />
+                            {profHeroVideoUrl.startsWith('local-video:') && (
+                              <button
+                                type="button"
+                                onClick={() => setProfHeroVideoUrl('')}
+                                className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 mt-1 cursor-pointer font-sans"
+                              >
+                                <LucideIcon name="Trash2" size={10} /> 업로드된 배경 비디오 취소 (주소 입력으로 전환)
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Direct File Upload */}
+                          <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-white/5 pt-2 md:pt-0 md:pl-4 flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 배경 비디오 파일 직접 업로드 (MP4)</span>
+                            <div className="flex items-center gap-3 mt-1">
+                              <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
+                                {heroVideoUploading ? (
+                                  <>
+                                    <LucideIcon name="Loader" size={14} className="animate-spin" />
+                                    <span>업로드 중...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <LucideIcon name="Upload" size={14} />
+                                    <span>배경 비디오 선택...</span>
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  disabled={heroVideoUploading}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setHeroVideoUploading(true);
+                                      try {
+                                        const storageKey = `hero-video-custom`;
+                                        await saveVideoToIndexedDB(storageKey, file);
+                                        if (file.size > 1024 * 1024) {
+                                          showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
+                                        } else {
+                                          uploadMediaToFirestore(storageKey, file).catch(console.error);
+                                        }
+                                        setProfHeroVideoUrl(`local-video:${storageKey}`);
+                                        showToast('배경 비디오가 성공적으로 업로드되었습니다!');
+                                      } catch (err) {
+                                        console.error('Hero video upload failed:', err);
+                                        alert('배경 비디오 파일 업로드에 실패했습니다.');
+                                      } finally {
+                                        setHeroVideoUploading(false);
+                                      }
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+                              {profHeroVideoUrl.startsWith('local-video:') && (
+                                <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
+                                  <LucideIcon name="Check" size={12} /> 저장 완료!
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          메인 대문 영역의 배경에 은은하게 흐를 비디오입니다. 비어있으면 기본 카메라맨 영상이 사용됩니다.
+                        </p>
                       </div>
                     </div>
 
@@ -1058,7 +1170,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                       if (file) {
                                         try {
                                           const storageKey = `thumbnail-${editingProject.id}-${Date.now()}`;
-                                          await saveVideoToIndexedDB(storageKey, file);
+                                          const compressed = await compressImageFile(file);
+                                          await saveVideoToIndexedDB(storageKey, compressed);
+                                          uploadMediaToFirestore(storageKey, compressed).catch(console.error);
                                           setEditingProject({ ...editingProject, thumbnail: `local-image:${storageKey}` });
                                           showToast('대표 썸네일 이미지가 업로드되었습니다.');
                                         } catch (err) {
@@ -1143,6 +1257,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                         try {
                                           const storageKey = `main-video-${editingProject.id}`;
                                           await saveVideoToIndexedDB(storageKey, file);
+                                          if (file.size > 1024 * 1024) {
+                                            showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
+                                          } else {
+                                            uploadMediaToFirestore(storageKey, file).catch(console.error);
+                                          }
                                           setEditingProject({
                                             ...editingProject,
                                             videoUrl: `local-video:${storageKey}`
@@ -1228,6 +1347,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                         try {
                                           const storageKey = `hover-video-${editingProject.id}`;
                                           await saveVideoToIndexedDB(storageKey, file);
+                                          if (file.size > 1024 * 1024) {
+                                            showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
+                                          } else {
+                                            uploadMediaToFirestore(storageKey, file).catch(console.error);
+                                          }
                                           setEditingProject({
                                             ...editingProject,
                                             hoverVideoUrl: `local-video:${storageKey}`
@@ -1352,7 +1476,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                           const file = files[i];
                                           try {
                                             const storageKey = `behind-${editingProject.id}-${Date.now()}-${i}`;
-                                            await saveVideoToIndexedDB(storageKey, file);
+                                            const compressed = await compressImageFile(file);
+                                            await saveVideoToIndexedDB(storageKey, compressed);
+                                            uploadMediaToFirestore(storageKey, compressed).catch(console.error);
                                             setEditingProject((prev) => {
                                               if (!prev) return prev;
                                               const localUrl = `local-image:${storageKey}`;
@@ -1462,17 +1588,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     <input
                                       type="file"
                                       accept="image/*"
-                                      onChange={(e) => {
+                                      onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
-                                          const reader = new FileReader();
-                                          reader.onloadend = async () => {
-                                            if (typeof reader.result === 'string') {
-                                              const compressed = await compressImageDataUrl(reader.result);
-                                              setEditingProject({ ...editingProject, editWorkspaceImg: compressed });
-                                            }
-                                          };
-                                          reader.readAsDataURL(file);
+                                          try {
+                                            const storageKey = `workspace-${editingProject.id}-${Date.now()}`;
+                                            const compressed = await compressImageFile(file);
+                                            await saveVideoToIndexedDB(storageKey, compressed);
+                                            uploadMediaToFirestore(storageKey, compressed).catch(console.error);
+                                            setEditingProject({ ...editingProject, editWorkspaceImg: `local-image:${storageKey}` });
+                                            showToast('작업실 캡쳐 사진이 등록되었습니다.');
+                                          } catch (err) {
+                                            console.error('Workspace image upload failed:', err);
+                                            alert('작업실 사진 저장 중 에러가 발생했습니다.');
+                                          }
                                         }
                                       }}
                                       className="hidden"
@@ -1569,7 +1698,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 if (file) {
                                   try {
                                     const storageKey = `profile-img-${Date.now()}`;
-                                    await saveVideoToIndexedDB(storageKey, file);
+                                    const compressed = await compressImageFile(file);
+                                    await saveVideoToIndexedDB(storageKey, compressed);
+                                    uploadMediaToFirestore(storageKey, compressed).catch(console.error);
                                     onSaveAll({ aboutProfileImg: `local-image:${storageKey}` });
                                     showToast('프로필 이미지가 안전하게 저장되었습니다.');
                                   } catch (err) {
@@ -2113,7 +2244,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                       if (file) {
                                         try {
                                           const storageKey = `gallery-${Date.now()}`;
-                                          await saveVideoToIndexedDB(storageKey, file);
+                                          const compressed = await compressImageFile(file);
+                                          await saveVideoToIndexedDB(storageKey, compressed);
+                                          uploadMediaToFirestore(storageKey, compressed).catch(console.error);
                                           setNewGalleryImg(`local-image:${storageKey}`);
                                           showToast('갤러리 사진이 준비되었습니다.');
                                         } catch (err) {

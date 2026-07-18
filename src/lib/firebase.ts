@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer, setDoc, onSnapshot, Firestore } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, setDoc, onSnapshot, Firestore, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
 
 // Initialize Firebase safely
@@ -84,5 +84,81 @@ export function subscribePortfolio(callback: (data: any) => void) {
     console.error("Failed to create Firestore subscription:", error);
     callback(null);
     return () => {};
+  }
+}
+
+/**
+ * Converts a Blob to a Base64 Data URL.
+ */
+export function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Converts a Base64 Data URL back to a Blob.
+ */
+export function base64ToBlob(base64DataUrl: string): Blob {
+  const arr = base64DataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
+/**
+ * Uploads a local image or video file to Firestore under /media/{key} as a base64-encoded document.
+ */
+export async function uploadMediaToFirestore(key: string, blob: Blob): Promise<void> {
+  if (!db) {
+    console.warn("Firestore not initialized. Skipping cloud media upload.");
+    return;
+  }
+  try {
+    const base64 = await blobToBase64(blob);
+    const docRef = doc(db, 'media', key);
+    await setDoc(docRef, {
+      id: key,
+      mimeType: blob.type,
+      base64: base64
+    });
+    console.log(`Successfully uploaded media [${key}] to Firestore cloud database.`);
+  } catch (error) {
+    console.error(`Failed to upload media [${key}] to Firestore:`, error);
+  }
+}
+
+/**
+ * Downloads a media document from Firestore under /media/{key} and returns a Blob.
+ */
+export async function downloadMediaFromFirestore(key: string): Promise<Blob | null> {
+  if (!db) {
+    console.warn("Firestore not initialized. Cannot download cloud media.");
+    return null;
+  }
+  try {
+    const docRef = doc(db, 'media', key);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data && data.base64) {
+        return base64ToBlob(data.base64);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn(`Failed to download cloud media [${key}] from Firestore:`, error);
+    return null;
   }
 }

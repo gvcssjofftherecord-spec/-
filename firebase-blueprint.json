@@ -17,12 +17,27 @@
         "aboutProfileImg": { "type": "string", "description": "The custom profile image URL used in the about section" }
       },
       "required": ["projects", "skills", "software", "experience", "achievements", "testimonials", "gallery", "profileInfo", "processSteps", "aboutProfileImg"]
+    },
+    "MediaFile": {
+      "title": "MediaFile",
+      "description": "Uploaded media files stored as base64 in separate documents to bypass the 1MB portfolio doc limit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique key (ID) of the media" },
+        "mimeType": { "type": "string", "description": "MIME type (e.g. image/jpeg, video/mp4)" },
+        "base64": { "type": "string", "description": "Base64 encoded data" }
+      },
+      "required": ["id", "mimeType", "base64"]
     }
   },
   "firestore": {
     "portfolio/main": {
       "schema": "PortfolioData",
       "description": "The main document containing all synced portfolio content"
+    },
+    "media/{mediaId}": {
+      "schema": "MediaFile",
+      "description": "Stored image or video media documents"
     }
   }
 }

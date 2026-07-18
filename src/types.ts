@@ -82,6 +82,7 @@ export interface ProfileInfo {
   instagram: string;
   youtube: string;
   github: string;
+  heroVideoUrl?: string;
 }
 
 export interface ProcessStep {

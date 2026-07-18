@@ -23,7 +23,7 @@ export const INITIAL_PROJECTS: Project[] = [
     editWorkspaceImg: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=1200&q=80',
     reflection: '하나의 다큐멘터리를 기획부터 최종 마스터링까지 혼자 이끌어 가면서, 비디오 메이커가 지녀야 할 진정한 스탠스에 대해 배웠습니다. 카메라는 대상을 감시하는 도구가 아닌, 대상과 교감하는 거울이어야 함을 깨달았습니다. 다빈치 리졸브를 통한 세밀한 컬러 그레이딩 과정에서 웜톤과 쿨톤의 대비를 활용해 감정의 온도 변화를 표현하는 귀중한 기술적 성취도 얻었습니다.',
     isFeatured: true,
-    createdAt: 1710600000
+    createdAt: 1710600000000
   },
   {
     id: 'gaze-shortfilm',
@@ -46,7 +46,7 @@ export const INITIAL_PROJECTS: Project[] = [
     editWorkspaceImg: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?auto=format&fit=crop&w=1200&q=80',
     reflection: '스토리텔링에서 사운드 디자인과 인물의 시선 처리가 얼마나 결정적인 영향력을 가지는지 배운 기회였습니다. 불필요한 테이크를 과감히 삭제하고 컷의 전환 타이밍을 0.1초 단위로 정교하게 맞추는 미니멀 편집 기법을 익혔습니다.',
     isFeatured: true,
-    createdAt: 1715600000
+    createdAt: 1715600000000
   },
   {
     id: 'youth-records',
@@ -68,7 +68,7 @@ export const INITIAL_PROJECTS: Project[] = [
     editWorkspaceImg: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=1200&q=80',
     reflection: '스토리텔러는 답을 내리는 사람이 아닌 질문을 던지는 사람이라는 귀중한 통찰을 얻었습니다. 상대방이 진정성이 어린 고백을 시작하는 순간 카메라 셔터를 차분하게 지속하는 호흡의 미학을 배웠습니다.',
     isFeatured: true,
-    createdAt: 1718200000
+    createdAt: 1718200000000
   },
   {
     id: 'festival-afterglow',
@@ -90,7 +90,7 @@ export const INITIAL_PROJECTS: Project[] = [
     editWorkspaceImg: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?auto=format&fit=crop&w=1200&q=80',
     reflection: '급변하는 야외 라이팅 상황 및 공연장의 극단적인 암부 변화 속에서 카메라 노출 및 셔터스피드를 정교하고 기민하게 조절하는 현장 대응력을 갖출 수 있었습니다.',
     isFeatured: false,
-    createdAt: 1698200000
+    createdAt: 1698200000000
   },
   {
     id: 'sejong-promo',
@@ -112,7 +112,7 @@ export const INITIAL_PROJECTS: Project[] = [
     editWorkspaceImg: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=1200&q=80',
     reflection: '디자인 레이아웃과 비주얼 밸런스가 영상 메시지의 전달력에 미치는 영향력을 다시금 절감했습니다. 정승리만의 정제된 세련미를 1분 30초의 쇼트폼에 압축 전송하는 연출 방식을 체득했습니다.',
     isFeatured: false,
-    createdAt: 1693200000
+    createdAt: 1693200000000
   }
 ];
 
@@ -212,7 +212,8 @@ export const INITIAL_PROFILE_INFO = {
   kakao: "정승리 영상제작자",
   instagram: "@seungri_video",
   youtube: "Seungri Jeong YT",
-  github: "github.com/seungri"
+  github: "github.com/seungri",
+  heroVideoUrl: "https://assets.mixkit.co/videos/preview/mixkit-cinematic-shot-of-a-camera-man-operating-a-camera-40679-large.mp4"
 };
 
 export const INITIAL_PROCESS_STEPS: ProcessStep[] = [

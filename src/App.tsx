@@ -8,6 +8,7 @@ import { ProjectDetail } from './components/ProjectDetail';
 import { AdminPanel } from './components/AdminPanel';
 import { HoverVideoPlayer } from './components/HoverVideoPlayer';
 import { SafeImage } from './components/SafeImage';
+import { useResolveVideoUrl } from './hooks/useResolveVideoUrl';
 import { isYouTubeUrl, getHoverEmbedUrl } from './lib/videoUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { INITIAL_PROFILE_INFO, INITIAL_PROCESS_STEPS } from './data/initialData';
@@ -63,49 +64,98 @@ export default function App() {
     // 2. Subscribe to Firebase Firestore for real-time synchronization
     const unsubscribe = subscribePortfolio((remoteData) => {
       if (remoteData) {
-        // Update states from Firestore
-        if (remoteData.projects) {
+        let hasMissingKeys = false;
+        const missingDataToSeed: any = {};
+
+        // Update states from Firestore, or fall back to local cached/default data and seed it back to Firestore
+        if (remoteData.projects && Array.isArray(remoteData.projects) && remoteData.projects.length > 0) {
           setProjects(remoteData.projects);
           saveStoredData.projects(remoteData.projects);
+        } else {
+          missingDataToSeed.projects = localData.projects;
+          hasMissingKeys = true;
         }
-        if (remoteData.skills) {
+
+        if (remoteData.skills && Array.isArray(remoteData.skills) && remoteData.skills.length > 0) {
           setSkills(remoteData.skills);
           saveStoredData.skills(remoteData.skills);
+        } else {
+          missingDataToSeed.skills = localData.skills;
+          hasMissingKeys = true;
         }
-        if (remoteData.software) {
+
+        if (remoteData.software && Array.isArray(remoteData.software) && remoteData.software.length > 0) {
           setSoftware(remoteData.software);
           saveStoredData.software(remoteData.software);
+        } else {
+          missingDataToSeed.software = localData.software;
+          hasMissingKeys = true;
         }
-        if (remoteData.experience) {
+
+        if (remoteData.experience && Array.isArray(remoteData.experience) && remoteData.experience.length > 0) {
           setExperience(remoteData.experience);
           saveStoredData.experience(remoteData.experience);
+        } else {
+          missingDataToSeed.experience = localData.experience;
+          hasMissingKeys = true;
         }
-        if (remoteData.achievements) {
+
+        if (remoteData.achievements && Array.isArray(remoteData.achievements) && remoteData.achievements.length > 0) {
           setAchievements(remoteData.achievements);
           saveStoredData.achievements(remoteData.achievements);
+        } else {
+          missingDataToSeed.achievements = localData.achievements;
+          hasMissingKeys = true;
         }
-        if (remoteData.testimonials) {
+
+        if (remoteData.testimonials && Array.isArray(remoteData.testimonials) && remoteData.testimonials.length > 0) {
           setTestimonials(remoteData.testimonials);
           saveStoredData.testimonials(remoteData.testimonials);
+        } else {
+          missingDataToSeed.testimonials = localData.testimonials;
+          hasMissingKeys = true;
         }
-        if (remoteData.gallery) {
+
+        if (remoteData.gallery && Array.isArray(remoteData.gallery) && remoteData.gallery.length > 0) {
           setGallery(remoteData.gallery);
           saveStoredData.gallery(remoteData.gallery);
+        } else {
+          missingDataToSeed.gallery = localData.gallery;
+          hasMissingKeys = true;
         }
-        if (remoteData.profileInfo) {
+
+        if (remoteData.profileInfo && typeof remoteData.profileInfo === 'object') {
           setProfileInfo(remoteData.profileInfo);
           saveStoredData.profileInfo(remoteData.profileInfo);
+        } else {
+          missingDataToSeed.profileInfo = localData.profileInfo;
+          hasMissingKeys = true;
         }
-        if (remoteData.processSteps) {
+
+        if (remoteData.processSteps && Array.isArray(remoteData.processSteps) && remoteData.processSteps.length > 0) {
           setProcessSteps(remoteData.processSteps);
           saveStoredData.processSteps(remoteData.processSteps);
+        } else {
+          missingDataToSeed.processSteps = localData.processSteps;
+          hasMissingKeys = true;
         }
+
         if (remoteData.aboutProfileImg) {
           setAboutProfileImg(remoteData.aboutProfileImg);
           localStorage.setItem('jsr_portfolio_about_profile_img', remoteData.aboutProfileImg);
+        } else {
+          missingDataToSeed.aboutProfileImg = localImg;
+          hasMissingKeys = true;
+        }
+
+        // If some keys were missing from the remote document, save them back to Firestore to ensure sync
+        if (hasMissingKeys) {
+          savePortfolioToFirestore(missingDataToSeed)
+            .then(() => console.log("Missing Firestore keys seeded successfully."))
+            .catch((err) => console.error("Failed to seed missing keys to Firestore:", err));
         }
       } else {
-        // If Firestore document does not exist, seed it with initial/local data
+        // If Firestore document does not exist at all, seed it with initial/local data
         const initialToSeed = {
           projects: localData.projects,
           skills: localData.skills,
@@ -248,6 +298,7 @@ export default function App() {
   };
 
   const info = profileInfo || INITIAL_PROFILE_INFO;
+  const resolvedHeroVideoUrl = useResolveVideoUrl(info.heroVideoUrl || "https://assets.mixkit.co/videos/preview/mixkit-cinematic-shot-of-a-camera-man-operating-a-camera-40679-large.mp4");
 
   // Normalizes 10-digit (seconds) and 13-digit (milliseconds) timestamps
   const getProjectTime = (proj: Project) => {
@@ -340,7 +391,7 @@ export default function App() {
             muted
             playsInline
             className="w-full h-full object-cover opacity-35 filter brightness-50"
-            src="https://assets.mixkit.co/videos/preview/mixkit-cinematic-shot-of-a-camera-man-operating-a-camera-40679-large.mp4"
+            src={resolvedHeroVideoUrl}
           />
           {/* Overlay Matte Vignette */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-black/40" />
