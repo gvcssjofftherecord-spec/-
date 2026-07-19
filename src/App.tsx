@@ -64,95 +64,47 @@ export default function App() {
     // 2. Subscribe to Firebase Firestore for real-time synchronization
     const unsubscribe = subscribePortfolio((remoteData) => {
       if (remoteData) {
-        let hasMissingKeys = false;
-        const missingDataToSeed: any = {};
-
-        // Update states from Firestore, or fall back to local cached/default data and seed it back to Firestore
-        if (remoteData.projects && Array.isArray(remoteData.projects) && remoteData.projects.length > 0) {
+        // Update states from Firestore when keys are present.
+        // We support empty arrays (e.g. length === 0) as valid states!
+        if (remoteData.projects && Array.isArray(remoteData.projects)) {
           setProjects(remoteData.projects);
           saveStoredData.projects(remoteData.projects);
-        } else {
-          missingDataToSeed.projects = localData.projects;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.skills && Array.isArray(remoteData.skills) && remoteData.skills.length > 0) {
+        if (remoteData.skills && Array.isArray(remoteData.skills)) {
           setSkills(remoteData.skills);
           saveStoredData.skills(remoteData.skills);
-        } else {
-          missingDataToSeed.skills = localData.skills;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.software && Array.isArray(remoteData.software) && remoteData.software.length > 0) {
+        if (remoteData.software && Array.isArray(remoteData.software)) {
           setSoftware(remoteData.software);
           saveStoredData.software(remoteData.software);
-        } else {
-          missingDataToSeed.software = localData.software;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.experience && Array.isArray(remoteData.experience) && remoteData.experience.length > 0) {
+        if (remoteData.experience && Array.isArray(remoteData.experience)) {
           setExperience(remoteData.experience);
           saveStoredData.experience(remoteData.experience);
-        } else {
-          missingDataToSeed.experience = localData.experience;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.achievements && Array.isArray(remoteData.achievements) && remoteData.achievements.length > 0) {
+        if (remoteData.achievements && Array.isArray(remoteData.achievements)) {
           setAchievements(remoteData.achievements);
           saveStoredData.achievements(remoteData.achievements);
-        } else {
-          missingDataToSeed.achievements = localData.achievements;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.testimonials && Array.isArray(remoteData.testimonials) && remoteData.testimonials.length > 0) {
+        if (remoteData.testimonials && Array.isArray(remoteData.testimonials)) {
           setTestimonials(remoteData.testimonials);
           saveStoredData.testimonials(remoteData.testimonials);
-        } else {
-          missingDataToSeed.testimonials = localData.testimonials;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.gallery && Array.isArray(remoteData.gallery) && remoteData.gallery.length > 0) {
+        if (remoteData.gallery && Array.isArray(remoteData.gallery)) {
           setGallery(remoteData.gallery);
           saveStoredData.gallery(remoteData.gallery);
-        } else {
-          missingDataToSeed.gallery = localData.gallery;
-          hasMissingKeys = true;
         }
-
         if (remoteData.profileInfo && typeof remoteData.profileInfo === 'object') {
           setProfileInfo(remoteData.profileInfo);
           saveStoredData.profileInfo(remoteData.profileInfo);
-        } else {
-          missingDataToSeed.profileInfo = localData.profileInfo;
-          hasMissingKeys = true;
         }
-
-        if (remoteData.processSteps && Array.isArray(remoteData.processSteps) && remoteData.processSteps.length > 0) {
+        if (remoteData.processSteps && Array.isArray(remoteData.processSteps)) {
           setProcessSteps(remoteData.processSteps);
           saveStoredData.processSteps(remoteData.processSteps);
-        } else {
-          missingDataToSeed.processSteps = localData.processSteps;
-          hasMissingKeys = true;
         }
-
         if (remoteData.aboutProfileImg) {
           setAboutProfileImg(remoteData.aboutProfileImg);
           localStorage.setItem('jsr_portfolio_about_profile_img', remoteData.aboutProfileImg);
-        } else {
-          missingDataToSeed.aboutProfileImg = localImg;
-          hasMissingKeys = true;
-        }
-
-        // If some keys were missing from the remote document, save them back to Firestore to ensure sync
-        if (hasMissingKeys) {
-          savePortfolioToFirestore(missingDataToSeed)
-            .then(() => console.log("Missing Firestore keys seeded successfully."))
-            .catch((err) => console.error("Failed to seed missing keys to Firestore:", err));
         }
       } else {
         // If Firestore document does not exist at all, seed it with initial/local data

@@ -8,6 +8,22 @@ import { useResolveImageUrl } from '../hooks/useResolveImageUrl';
 import { uploadMediaToFirestore } from '../lib/firebase';
 import { SafeImage } from './SafeImage';
 
+async function uploadFileToServer(file: File | Blob): Promise<string> {
+  const name = (file as File).name || `upload-${Date.now()}`;
+  const response = await fetch(`/api/upload?filename=${encodeURIComponent(name)}`, {
+    method: 'POST',
+    body: file,
+    headers: {
+      'Content-Type': file.type,
+    },
+  });
+  if (!response.ok) {
+    throw new Error('Upload failed');
+  }
+  const result = await response.json();
+  return result.url;
+}
+
 interface AdminPanelProps {
   onClose: () => void;
   projects: Project[];
@@ -588,18 +604,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <input
                               type="file"
                               accept="image/*"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = async () => {
-                                    if (typeof reader.result === 'string') {
-                                      const compressed = await compressImageDataUrl(reader.result);
-                                      onSaveAll({ aboutProfileImg: compressed });
-                                      showToast('프로필 이미지가 변경되었습니다.');
-                                    }
-                                  };
-                                  reader.readAsDataURL(file);
+                                  try {
+                                    const compressed = await compressImageFile(file);
+                                    const serverUrl = await uploadFileToServer(compressed);
+                                    onSaveAll({ aboutProfileImg: serverUrl });
+                                    showToast('프로필 이미지가 변경되었습니다.');
+                                  } catch (err) {
+                                    console.error('Profile photo upload failed:', err);
+                                    alert('프로필 사진 저장에 실패했습니다. (서버 연결 실패)');
+                                  }
                                 }
                               }}
                               className="hidden"
@@ -806,37 +822,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <span className="text-[10px] text-gray-400 font-medium block">방법 1: 외부 비디오 직접 링크 주소 입력 (.mp4 등)</span>
                             <input
                               type="text"
-                              value={profHeroVideoUrl.startsWith('local-video:') ? '내 컴퓨터에서 업로드된 배경 비디오 파일' : profHeroVideoUrl}
-                              disabled={profHeroVideoUrl.startsWith('local-video:')}
+                              value={profHeroVideoUrl}
                               onChange={(e) => setProfHeroVideoUrl(e.target.value)}
-                              className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white disabled:opacity-50 disabled:text-gray-400 font-mono"
+                              className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white font-mono"
                               placeholder="예: https://assets.mixkit.co/videos/preview/...mp4"
                             />
-                            {profHeroVideoUrl.startsWith('local-video:') && (
+                            {profHeroVideoUrl && (
                               <button
                                 type="button"
                                 onClick={() => setProfHeroVideoUrl('')}
                                 className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 mt-1 cursor-pointer font-sans"
                               >
-                                <LucideIcon name="Trash2" size={10} /> 업로드된 배경 비디오 취소 (주소 입력으로 전환)
+                                <LucideIcon name="Trash2" size={10} /> 배경 비디오 초기화
                               </button>
                             )}
                           </div>
 
                           {/* Direct File Upload */}
                           <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-white/5 pt-2 md:pt-0 md:pl-4 flex flex-col justify-center">
-                            <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 배경 비디오 파일 직접 업로드 (MP4)</span>
+                            <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 배경 비디오 파일 직접 업로드 (최대 300MB)</span>
                             <div className="flex items-center gap-3 mt-1">
                               <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
                                 {heroVideoUploading ? (
                                   <>
                                     <LucideIcon name="Loader" size={14} className="animate-spin" />
-                                    <span>업로드 중...</span>
+                                    <span>서버로 업로드 중...</span>
                                   </>
                                 ) : (
                                   <>
                                     <LucideIcon name="Upload" size={14} />
-                                    <span>배경 비디오 선택...</span>
+                                    <span>배경 비디오 선택 (MP4)...</span>
                                   </>
                                 )}
                                 <input
@@ -846,20 +861,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
+                                      if (file.size > 300 * 1024 * 1024) {
+                                        alert('파일 크기가 너무 큽니다. (최대 300MB)');
+                                        return;
+                                      }
                                       setHeroVideoUploading(true);
                                       try {
-                                        const storageKey = `hero-video-${Date.now()}`;
-                                        await saveVideoToIndexedDB(storageKey, file);
-                                        if (file.size > 1024 * 1024) {
-                                          showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
-                                        } else {
-                                          uploadMediaToFirestore(storageKey, file).catch(console.error);
-                                        }
-                                        setProfHeroVideoUrl(`local-video:${storageKey}`);
-                                        showToast('배경 비디오가 성공적으로 업로드되었습니다!');
+                                        const serverUrl = await uploadFileToServer(file);
+                                        setProfHeroVideoUrl(serverUrl);
+                                        showToast('배경 비디오가 성공적으로 업로드 및 동기화되었습니다!');
                                       } catch (err) {
                                         console.error('Hero video upload failed:', err);
-                                        alert('배경 비디오 파일 업로드에 실패했습니다.');
+                                        alert('배경 비디오 파일 업로드에 실패했습니다. (서버 연결 실패)');
                                       } finally {
                                         setHeroVideoUploading(false);
                                       }
@@ -868,21 +881,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   className="hidden"
                                 />
                               </label>
-                              {profHeroVideoUrl.startsWith('local-video:') && (
+                              {profHeroVideoUrl && (
                                 <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                                  <LucideIcon name="Check" size={12} /> 저장 완료!
+                                  <LucideIcon name="Check" size={12} /> 적용됨
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                          💡 <span className="text-[#B021FF] font-semibold">기기 간 동기화 안내 (크롬/모바일 완벽 통일):</span> 
-                          내 컴퓨터에서 직접 파일을 업로드할 때, 파일 크기가 <span className="text-red-400 font-semibold">1MB를 초과</span>하면 클라우드 데이터베이스(Firestore)의 1MB 용량 한계로 인해 다른 기기로 전송되지 않고 업로드한 컴퓨터(크롬)에만 저장됩니다. (모바일 등 다른 기기에서는 기본 비디오가 대신 재생됩니다)
-                          <br />
-                          모든 브라우저와 모바일 기기에서 <span className="text-[#B021FF] font-semibold">완벽히 동일한 배경 비디오가 나오게 하려면</span>, 
-                          <span className="text-emerald-400 font-semibold"> [방법 1] 외부 비디오 주소 직접 링크(.mp4 주소)</span>를 입력하시거나, 
-                          <span className="text-emerald-400 font-semibold"> [방법 2] 1MB 이하로 고압축된 가벼운 비디오 파일</span>을 업로드해 주세요!
+                          💡 <span className="text-[#B021FF] font-semibold">동기화 완료:</span> 
+                          서버 업로드를 통해 크롬, 모바일, 태블릿 등 모든 환경에서 완벽히 동일한 배경 비디오가 실시간으로 동기화되어 재생됩니다. (서버가 변경 사항을 직접 서빙하며, 최대 300MB 고용량 파일을 지원합니다)
                         </p>
                       </div>
                     </div>
@@ -1163,7 +1172,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             {/* Upload Area & URL Input */}
                             <div className="md:col-span-2 flex flex-col justify-center space-y-3">
                               <div className="space-y-1.5 text-left">
-                                <span className="text-[10px] text-gray-400 font-medium block">방법 1: 내 컴퓨터에서 사진 파일 업로드</span>
+                                <span className="text-[10px] text-gray-400 font-medium block">방법 1: 내 컴퓨터에서 사진 파일 업로드 (서버 직접 업로드)</span>
                                 <label className="inline-flex items-center gap-2 px-3 py-2 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
                                   <LucideIcon name="Upload" size={14} />
                                   <span>사진 파일 선택...</span>
@@ -1174,11 +1183,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                       const file = e.target.files?.[0];
                                       if (file) {
                                         try {
-                                          const storageKey = `thumbnail-${editingProject.id}-${Date.now()}`;
                                           const compressed = await compressImageFile(file);
-                                          await saveVideoToIndexedDB(storageKey, compressed);
-                                          uploadMediaToFirestore(storageKey, compressed).catch(console.error);
-                                          setEditingProject({ ...editingProject, thumbnail: `local-image:${storageKey}` });
+                                          const serverUrl = await uploadFileToServer(compressed);
+                                          setEditingProject({ ...editingProject, thumbnail: serverUrl });
                                           showToast('대표 썸네일 이미지가 업로드되었습니다.');
                                         } catch (err) {
                                           console.error('Thumbnail upload failed:', err);
@@ -1218,32 +1225,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <span className="text-[10px] text-gray-400 font-medium block">방법 1: 유튜브/비메오 주소 또는 동영상 파일 URL 입력</span>
                               <input
                                 type="text"
-                                value={editingProject.videoUrl.startsWith('local-video:') ? '내 컴퓨터에서 업로드된 비디오 파일' : editingProject.videoUrl}
-                                disabled={editingProject.videoUrl.startsWith('local-video:')}
+                                value={editingProject.videoUrl}
                                 onChange={(e) => setEditingProject({ ...editingProject, videoUrl: e.target.value })}
-                                className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white disabled:opacity-50 disabled:text-gray-400 font-mono"
+                                className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white font-mono"
                                 placeholder="예: https://www.youtube.com/watch?v=ScMzIvxBSi4 등"
                               />
-                              {editingProject.videoUrl.startsWith('local-video:') && (
+                              {editingProject.videoUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setEditingProject({ ...editingProject, videoUrl: '' })}
                                   className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 mt-1 cursor-pointer font-sans"
                                 >
-                                  <LucideIcon name="Trash2" size={10} /> 업로드된 로컬 비디오 취소 (주소 입력으로 전환)
+                                  <LucideIcon name="Trash2" size={10} /> 영상 경로 초기화
                                 </button>
                               )}
                             </div>
 
                             {/* Local File Upload */}
                             <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-white/5 pt-2 md:pt-0 md:pl-4 flex flex-col justify-center">
-                              <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 고용량 비디오 파일 직접 업로드 (MP4, WebM 등)</span>
+                              <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 고용량 비디오 파일 직접 업로드 (최대 300MB)</span>
                               <div className="flex items-center gap-3 mt-1">
                                 <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
                                   {videoUploading ? (
                                     <>
                                       <LucideIcon name="Loader" size={14} className="animate-spin" />
-                                      <span>업로드 중...</span>
+                                      <span>서버로 업로드 중...</span>
                                     </>
                                   ) : (
                                     <>
@@ -1258,23 +1264,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (file) {
+                                        if (file.size > 300 * 1024 * 1024) {
+                                          alert('파일 크기가 너무 큽니다. (최대 300MB)');
+                                          return;
+                                        }
                                         setVideoUploading(true);
                                         try {
-                                          const storageKey = `main-video-${editingProject.id}`;
-                                          await saveVideoToIndexedDB(storageKey, file);
-                                          if (file.size > 1024 * 1024) {
-                                            showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
-                                          } else {
-                                            uploadMediaToFirestore(storageKey, file).catch(console.error);
-                                          }
+                                          const serverUrl = await uploadFileToServer(file);
                                           setEditingProject({
                                             ...editingProject,
-                                            videoUrl: `local-video:${storageKey}`
+                                            videoUrl: serverUrl
                                           });
-                                          showToast('영상 파일이 업로드되어 로컬 브라우저에 저장되었습니다!');
+                                          showToast('영상 파일이 서버에 성공적으로 업로드 및 동기화되었습니다!');
                                         } catch (err) {
                                           console.error('Video upload failed:', err);
-                                          alert('비디오 파일 업로드에 실패했습니다.');
+                                          alert('비디오 파일 업로드에 실패했습니다. (서버 연결 실패)');
                                         } finally {
                                           setVideoUploading(false);
                                         }
@@ -1283,14 +1287,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     className="hidden"
                                   />
                                 </label>
-                                {editingProject.videoUrl.startsWith('local-video:') && (
+                                {editingProject.videoUrl && (
                                   <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                                    <LucideIcon name="Check" size={12} /> 저장 완료!
+                                    <LucideIcon name="Check" size={12} /> 적용됨
                                   </span>
                                 )}
                               </div>
                               <p className="text-[10px] text-gray-500 mt-1">
-                                브라우저 내장 IndexedDB 안전 저장소가 사용되므로, 고용량 영상도 안전하게 보관됩니다.
+                                업로드된 영상은 서버에 직접 보관되어 모든 장치(크롬, 모바일)에서 새로고침 후에도 유지 및 스트리밍됩니다.
                               </p>
                             </div>
                           </div>
@@ -1308,32 +1312,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <span className="text-[10px] text-gray-400 font-medium block">방법 1: 프리뷰용 외부 영상 주소 입력 (MP4 등)</span>
                               <input
                                 type="text"
-                                value={(editingProject.hoverVideoUrl || '').startsWith('local-video:') ? '내 컴퓨터에서 업로드된 프리뷰 영상' : (editingProject.hoverVideoUrl || '')}
-                                disabled={(editingProject.hoverVideoUrl || '').startsWith('local-video:')}
+                                value={editingProject.hoverVideoUrl || ''}
                                 onChange={(e) => setEditingProject({ ...editingProject, hoverVideoUrl: e.target.value })}
-                                className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white disabled:opacity-50 disabled:text-gray-400 font-mono"
+                                className="w-full bg-black/60 border border-white/15 focus:border-[#B021FF] focus:outline-none focus:ring-1 focus:ring-[#B021FF] rounded p-2 text-xs text-white font-mono"
                                 placeholder="예: https://assets.mixkit.co/... 또는 유튜브 주소"
                               />
-                              {(editingProject.hoverVideoUrl || '').startsWith('local-video:') && (
+                              {editingProject.hoverVideoUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setEditingProject({ ...editingProject, hoverVideoUrl: '' })}
                                   className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 mt-1 cursor-pointer font-sans"
                                 >
-                                  <LucideIcon name="Trash2" size={10} /> 업로드된 로컬 프리뷰 취소
+                                  <LucideIcon name="Trash2" size={10} /> 프리뷰 영상 초기화
                                 </button>
                               )}
                             </div>
 
                             {/* Local File Upload */}
                             <div className="space-y-1.5 text-left border-t md:border-t-0 md:border-l border-white/5 pt-2 md:pt-0 md:pl-4 flex flex-col justify-center">
-                              <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 프리뷰용 짤막한 영상 파일 직접 업로드</span>
+                              <span className="text-[10px] text-gray-400 font-medium block">방법 2: 내 컴퓨터에서 프리뷰용 짤막한 영상 파일 직접 업로드 (최대 300MB)</span>
                               <div className="flex items-center gap-3 mt-1">
                                 <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
                                   {hoverVideoUploading ? (
                                     <>
                                       <LucideIcon name="Loader" size={14} className="animate-spin" />
-                                      <span>업로드 중...</span>
+                                      <span>서버로 업로드 중...</span>
                                     </>
                                   ) : (
                                     <>
@@ -1348,23 +1351,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (file) {
+                                        if (file.size > 300 * 1024 * 1024) {
+                                          alert('파일 크기가 너무 큽니다. (최대 300MB)');
+                                          return;
+                                        }
                                         setHoverVideoUploading(true);
                                         try {
-                                          const storageKey = `hover-video-${editingProject.id}`;
-                                          await saveVideoToIndexedDB(storageKey, file);
-                                          if (file.size > 1024 * 1024) {
-                                            showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
-                                          } else {
-                                            uploadMediaToFirestore(storageKey, file).catch(console.error);
-                                          }
+                                          const serverUrl = await uploadFileToServer(file);
                                           setEditingProject({
                                             ...editingProject,
-                                            hoverVideoUrl: `local-video:${storageKey}`
+                                            hoverVideoUrl: serverUrl
                                           });
-                                          showToast('마우스 오버 프리뷰 영상이 성공적으로 업로드되었습니다!');
+                                          showToast('마우스 오버 프리뷰 영상이 성공적으로 업로드 및 동기화되었습니다!');
                                         } catch (err) {
                                           console.error('Preview video upload failed:', err);
-                                          alert('프리뷰 비디오 파일 업로드에 실패했습니다.');
+                                          alert('프리뷰 비디오 파일 업로드에 실패했습니다. (서버 연결 실패)');
                                         } finally {
                                           setHoverVideoUploading(false);
                                         }
@@ -1373,9 +1374,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     className="hidden"
                                   />
                                 </label>
-                                {(editingProject.hoverVideoUrl || '').startsWith('local-video:') && (
+                                {editingProject.hoverVideoUrl && (
                                   <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                                    <LucideIcon name="Check" size={12} /> 저장 완료!
+                                    <LucideIcon name="Check" size={12} /> 적용됨
                                   </span>
                                 )}
                               </div>
@@ -1691,7 +1692,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       {/* Controls */}
                       <div className="md:col-span-2 flex flex-col justify-center space-y-3">
                         <div className="space-y-1.5 text-left">
-                          <span className="text-[10px] text-gray-400 font-medium block">방법 1: 내 컴퓨터에서 프로필 사진 파일 업로드</span>
+                          <span className="text-[10px] text-gray-400 font-medium block">방법 1: 내 컴퓨터에서 프로필 사진 파일 업로드 (서버 직접 업로드)</span>
                           <label className="inline-flex items-center gap-2 px-3 py-2 bg-[#B021FF]/10 hover:bg-[#B021FF]/20 border border-[#B021FF]/30 hover:border-[#B021FF]/50 text-[#C154FF] hover:text-white rounded text-xs font-semibold cursor-pointer transition-all active:scale-[0.98]">
                             <LucideIcon name="Upload" size={14} />
                             <span>프로필 사진 선택...</span>
@@ -1702,15 +1703,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 const file = e.target.files?.[0];
                                 if (file) {
                                   try {
-                                    const storageKey = `profile-img-${Date.now()}`;
                                     const compressed = await compressImageFile(file);
-                                    await saveVideoToIndexedDB(storageKey, compressed);
-                                    uploadMediaToFirestore(storageKey, compressed).catch(console.error);
-                                    onSaveAll({ aboutProfileImg: `local-image:${storageKey}` });
+                                    const serverUrl = await uploadFileToServer(compressed);
+                                    onSaveAll({ aboutProfileImg: serverUrl });
                                     showToast('프로필 이미지가 안전하게 저장되었습니다.');
                                   } catch (err) {
                                     console.error('Profile image upload failed:', err);
-                                    alert('프로필 이미지 저장 중 에러가 발생했습니다.');
+                                    alert('프로필 이미지 저장에 실패했습니다. (서버 연결 실패)');
                                   }
                                 }
                               }}
@@ -2248,15 +2247,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                       const file = e.target.files?.[0];
                                       if (file) {
                                         try {
-                                          const storageKey = `gallery-${Date.now()}`;
                                           const compressed = await compressImageFile(file);
-                                          await saveVideoToIndexedDB(storageKey, compressed);
-                                          uploadMediaToFirestore(storageKey, compressed).catch(console.error);
-                                          setNewGalleryImg(`local-image:${storageKey}`);
+                                          const serverUrl = await uploadFileToServer(compressed);
+                                          setNewGalleryImg(serverUrl);
                                           showToast('갤러리 사진이 준비되었습니다.');
                                         } catch (err) {
                                           console.error('Gallery image upload failed:', err);
-                                          alert('갤러리 사진 저장 중 에러가 발생했습니다.');
+                                          alert('갤러리 사진 저장에 실패했습니다. (서버 연결 실패)');
                                         }
                                       }
                                     }}
