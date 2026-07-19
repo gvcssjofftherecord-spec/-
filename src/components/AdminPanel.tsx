@@ -876,8 +876,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             </div>
                           </div>
                         </div>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          메인 대문 영역의 배경에 은은하게 흐를 비디오입니다. 비어있으면 기본 카메라맨 영상이 사용됩니다.
+                        <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                          💡 <span className="text-[#B021FF] font-semibold">기기 간 동기화 안내 (크롬/모바일 완벽 통일):</span> 
+                          내 컴퓨터에서 직접 파일을 업로드할 때, 파일 크기가 <span className="text-red-400 font-semibold">1MB를 초과</span>하면 클라우드 데이터베이스(Firestore)의 1MB 용량 한계로 인해 다른 기기로 전송되지 않고 업로드한 컴퓨터(크롬)에만 저장됩니다. (모바일 등 다른 기기에서는 기본 비디오가 대신 재생됩니다)
+                          <br />
+                          모든 브라우저와 모바일 기기에서 <span className="text-[#B021FF] font-semibold">완벽히 동일한 배경 비디오가 나오게 하려면</span>, 
+                          <span className="text-emerald-400 font-semibold"> [방법 1] 외부 비디오 주소 직접 링크(.mp4 주소)</span>를 입력하시거나, 
+                          <span className="text-emerald-400 font-semibold"> [방법 2] 1MB 이하로 고압축된 가벼운 비디오 파일</span>을 업로드해 주세요!
                         </p>
                       </div>
                     </div>

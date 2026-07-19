@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getVideoFromIndexedDB } from '../lib/videoStorage';
 
-export function useResolveVideoUrl(url?: string): string {
+export function useResolveVideoUrl(url?: string, fallbackUrl: string = 'https://assets.mixkit.co/videos/preview/mixkit-cinematic-shot-of-a-camera-man-operating-a-camera-40679-large.mp4'): string {
   const [resolvedUrl, setResolvedUrl] = useState<string>('');
 
   useEffect(() => {
     if (!url) {
-      setResolvedUrl('');
+      setResolvedUrl(fallbackUrl);
       return;
     }
 
@@ -23,7 +23,7 @@ export function useResolveVideoUrl(url?: string): string {
             setResolvedUrl(objectUrl);
           } catch (e) {
             console.error('Failed to create object URL from blob:', e);
-            setResolvedUrl('');
+            setResolvedUrl(fallbackUrl);
           }
         } else {
           // Fallback: Try fetching from Firestore cloud database
@@ -36,16 +36,16 @@ export function useResolveVideoUrl(url?: string): string {
               objectUrl = URL.createObjectURL(remoteBlob);
               setResolvedUrl(objectUrl);
             } else {
-              setResolvedUrl('');
+              setResolvedUrl(fallbackUrl);
             }
           } catch (cloudErr) {
             console.warn('Failed to fetch video from cloud:', cloudErr);
-            setResolvedUrl('');
+            setResolvedUrl(fallbackUrl);
           }
         }
       }).catch((err) => {
         console.error('Failed to retrieve video from IndexedDB:', err);
-        setResolvedUrl('');
+        setResolvedUrl(fallbackUrl);
       });
 
       return () => {
