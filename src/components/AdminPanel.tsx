@@ -10,18 +10,64 @@ import { SafeImage } from './SafeImage';
 
 async function uploadFileToServer(file: File | Blob): Promise<string> {
   const name = (file as File).name || `upload-${Date.now()}`;
-  const response = await fetch(`/api/upload?filename=${encodeURIComponent(name)}`, {
-    method: 'POST',
-    body: file,
-    headers: {
-      'Content-Type': file.type,
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Upload failed');
+  let filename = name;
+  if (!filename.includes('.') && file.type) {
+    const ext = file.type.split('/')[1];
+    if (ext) {
+      filename = `${filename}.${ext}`;
+    }
   }
-  const result = await response.json();
-  return result.url;
+
+  try {
+    const response = await fetch(`/api/upload?filename=${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned status ${response.status}`);
+    }
+    const result = await response.json();
+    if (result && result.url) {
+      return result.url;
+    }
+    throw new Error('No URL in server response');
+  } catch (err) {
+    console.warn('Server upload failed, falling back to local/cloud hybrid storage:', err);
+    if (file.type.startsWith('image/')) {
+      // For images, read as base64 data URL and compress it as a fallback
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          if (typeof reader.result === 'string') {
+            try {
+              const compressed = await compressImageDataUrl(reader.result);
+              resolve(compressed);
+            } catch (compressErr) {
+              resolve(reader.result);
+            }
+          } else {
+            reject(new Error('Failed to convert file to base64'));
+          }
+        };
+        reader.onerror = () => reject(new Error('FileReader error'));
+        reader.readAsDataURL(file);
+      });
+    } else {
+      // For video or other media, use IndexedDB + Firestore backup
+      const storageKey = `fallback-media-${Date.now()}`;
+      try {
+        await saveVideoToIndexedDB(storageKey, file);
+        uploadMediaToFirestore(storageKey, file).catch(console.error);
+        return `local-video:${storageKey}`;
+      } catch (dbErr) {
+        console.error('IndexedDB backup also failed:', dbErr);
+        throw err; // throw original upload error if backup fails too
+      }
+    }
+  }
 }
 
 interface AdminPanelProps {
