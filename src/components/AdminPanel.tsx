@@ -848,7 +848,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     if (file) {
                                       setHeroVideoUploading(true);
                                       try {
-                                        const storageKey = `hero-video-custom`;
+                                        const storageKey = `hero-video-${Date.now()}`;
                                         await saveVideoToIndexedDB(storageKey, file);
                                         if (file.size > 1024 * 1024) {
                                           showToast('⚠️ 1MB 초과 비디오는 로컬 브라우저에만 저장되고 클라우드 동기화는 제외됩니다.');
